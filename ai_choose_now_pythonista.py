@@ -54,7 +54,7 @@ class AdventureView(ui.View):
             text=DEFAULT_HOST,
             text_color="white",
             bg_color="#222",
-            border_style=ui.BORDER_ROUNDED,
+            border_style="rounded_rect",
             clear_button_mode="while_editing",
         )
         self.add_subview(self.server_field)
@@ -65,8 +65,8 @@ class AdventureView(ui.View):
             text=DEFAULT_PORT,
             text_color="white",
             bg_color="#222",
-            border_style=ui.BORDER_ROUNDED,
-            keyboard_type=ui.KEYBOARD_NUMBERS,
+            border_style="rounded_rect",
+            keyboard_type="number_pad",
         )
         self.add_subview(self.port_field)
 
@@ -76,7 +76,7 @@ class AdventureView(ui.View):
             text=DEFAULT_MODEL,
             text_color="white",
             bg_color="#222",
-            border_style=ui.BORDER_ROUNDED,
+            border_style="rounded_rect",
             clear_button_mode="while_editing",
         )
         self.add_subview(self.model_field)
@@ -118,7 +118,7 @@ class AdventureView(ui.View):
             placeholder="Or type your own action...",
             text_color="white",
             bg_color="#222",
-            border_style=ui.BORDER_ROUNDED,
+            border_style="rounded_rect",
             clear_button_mode="while_editing",
         )
         self.add_subview(self.custom_action)
