@@ -66,7 +66,6 @@ class AdventureView(ui.View):
             text_color="white",
             bg_color="#222",
             border_style="rounded_rect",
-            keyboard_type="number_pad",
         )
         self.add_subview(self.port_field)
 
