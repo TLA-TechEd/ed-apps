@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASCII Archon Duel</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #151c33;
+      --ink: #d9f0ff;
+      --accent: #ffd166;
+      --light: #82f7a6;
+      --dark: #f78282;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: radial-gradient(circle at top, #172042, var(--bg));
+      color: var(--ink);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+    }
+    .wrap {
+      width: min(1000px, 100%);
+      display: grid;
+      gap: 12px;
+    }
+    .hud {
+      background: color-mix(in srgb, var(--panel) 90%, black);
+      border: 1px solid #2f3c6f;
+      border-radius: 10px;
+      padding: 10px;
+      line-height: 1.45;
+    }
+    .hud b { color: var(--accent); }
+    pre#board {
+      margin: 0;
+      white-space: pre;
+      font-size: clamp(9px, 1.6vw, 16px);
+      line-height: 1.05;
+      background: #060a16;
+      border: 1px solid #2f3c6f;
+      border-radius: 10px;
+      padding: 12px;
+      overflow: auto;
+      touch-action: none;
+      user-select: none;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .pad {
+      background: var(--panel);
+      border: 1px solid #2f3c6f;
+      border-radius: 10px;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+    }
+    .pad h3 { margin: 0; font-size: 14px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    button {
+      background: #1b2750;
+      color: var(--ink);
+      border: 1px solid #3f56a0;
+      border-radius: 8px;
+      padding: 10px;
+      font: inherit;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+    .team-light { color: var(--light); }
+    .team-dark { color: var(--dark); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hud" id="hud"></section>
+    <pre id="board" aria-label="ASCII game board"></pre>
+    <section class="controls" aria-label="Touch controls">
+      <div class="pad">
+        <h3 class="team-light">Player 1 / Light (WASD + F)</h3>
+        <div class="grid" data-pad="p1">
+          <button data-key="w">▲</button><button data-key="f">ATTACK</button><button data-key="i">P2 ▲</button>
+          <button data-key="a">◀</button><button data-key="s">▼</button><button data-key="d">▶</button>
+          <button data-key="j">P2 ◀</button><button data-key="k">P2 ▼</button><button data-key="l">P2 ▶</button>
+        </div>
+      </div>
+      <div class="pad">
+        <h3 class="team-dark">Player 2 / Dark (IJKL + ;)</h3>
+        <div class="grid" data-pad="p2">
+          <button data-key="i">▲</button><button data-key=";">ATTACK</button><button data-key="r">RESET</button>
+          <button data-key="j">◀</button><button data-key="k">▼</button><button data-key="l">▶</button>
+          <button data-key="w">P1 ▲</button><button data-key="a">P1 ◀</button><button data-key="d">P1 ▶</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script>
+(() => {
+  const W = 13, H = 13;
+  const boardEl = document.getElementById('board');
+  const hudEl = document.getElementById('hud');
+
+  const terrain = [
+    '#############',
+    '#..~..^..~..#',
+    '#.^..~~~..^.#',
+    '#..##...##..#',
+    '#..~.^^^.~..#',
+    '#...~...~...#',
+    '#^^...+...^^#',
+    '#...~...~...#',
+    '#..~.^^^.~..#',
+    '#..##...##..#',
+    '#.^..~~~..^.#',
+    '#..~..^..~..#',
+    '#############'
+  ];
+
+  const unitDefs = {
+    K: { name: 'Knight', hp: 14, atk: 4, mov: 1, icon: 'K' },
+    A: { name: 'Archer', hp: 10, atk: 3, mov: 1, icon: 'A' },
+    G: { name: 'Golem', hp: 18, atk: 3, mov: 1, icon: 'G' },
+    D: { name: 'Dragon', hp: 12, atk: 5, mov: 1, icon: 'D' },
+  };
+
+  let state;
+
+  function init() {
+    state = {
+      turn: 'light',
+      winner: null,
+      units: [
+        mk('light', 'K', 2, 2),
+        mk('light', 'A', 4, 2),
+        mk('light', 'G', 6, 2),
+        mk('light', 'D', 8, 2),
+        mk('dark', 'K', 10, 10),
+        mk('dark', 'A', 8, 10),
+        mk('dark', 'G', 6, 10),
+        mk('dark', 'D', 4, 10),
+      ],
+      cursor: { light: { x: 2, y: 2 }, dark: { x: 10, y: 10 } },
+      selected: { light: 0, dark: 4 },
+      log: 'Battle begins! Capture the + shrine or defeat all enemy units.'
+    };
+    render();
+  }
+
+  function mk(team, kind, x, y) {
+    const d = unitDefs[kind];
+    return { team, kind, x, y, hp: d.hp, maxHp: d.hp };
+  }
+
+  function unitAt(x, y) {
+    return state.units.find(u => u.hp > 0 && u.x === x && u.y === y);
+  }
+
+  function walkable(x, y) {
+    if (x < 0 || y < 0 || x >= W || y >= H) return false;
+    const t = terrain[y][x];
+    if (t === '#') return false;
+    return !unitAt(x, y);
+  }
+
+  function switchTurn() {
+    state.turn = state.turn === 'light' ? 'dark' : 'light';
+  }
+
+  function alive(team) {
+    return state.units.filter(u => u.team === team && u.hp > 0);
+  }
+
+  function checkWin() {
+    const lightAlive = alive('light');
+    const darkAlive = alive('dark');
+    if (!lightAlive.length) state.winner = 'Dark';
+    if (!darkAlive.length) state.winner = 'Light';
+
+    for (const u of [...lightAlive, ...darkAlive]) {
+      if (terrain[u.y][u.x] === '+') state.winner = u.team === 'light' ? 'Light' : 'Dark';
+    }
+  }
+
+  function selectedUnit(team) {
+    const idx = state.selected[team];
+    const u = state.units[idx];
+    if (u && u.hp > 0 && u.team === team) return u;
+    const fallback = state.units.findIndex(x => x.team === team && x.hp > 0);
+    state.selected[team] = fallback;
+    return state.units[fallback];
+  }
+
+  function move(team, dx, dy) {
+    if (state.winner || state.turn !== team) return;
+    const u = selectedUnit(team);
+    if (!u) return;
+    const nx = u.x + dx;
+    const ny = u.y + dy;
+    if (walkable(nx, ny)) {
+      u.x = nx; u.y = ny;
+      state.cursor[team] = { x: nx, y: ny };
+      state.log = `${teamName(team)} ${unitDefs[u.kind].name} moves.`;
+      checkWin();
+      switchTurn();
+    }
+    render();
+  }
+
+  function attack(team) {
+    if (state.winner || state.turn !== team) return;
+    const a = selectedUnit(team);
+    if (!a) return;
+    const enemy = state.units.find(u => u.hp > 0 && u.team !== team && Math.abs(u.x - a.x) + Math.abs(u.y - a.y) === 1);
+    if (!enemy) {
+      state.log = `${teamName(team)} attack misses (no adjacent enemy).`;
+      render();
+      return;
+    }
+    const dmg = unitDefs[a.kind].atk + Math.floor(Math.random() * 3);
+    enemy.hp -= dmg;
+    state.log = `${teamName(team)} ${a.kind} hits ${enemy.kind} for ${dmg}.`;
+    if (enemy.hp <= 0) state.log += ` ${enemy.kind} falls!`;
+    checkWin();
+    switchTurn();
+    render();
+  }
+
+  function cycle(team) {
+    const all = state.units.map((u, i) => ({ u, i })).filter(x => x.u.team === team && x.u.hp > 0);
+    if (!all.length) return;
+    const pos = all.findIndex(x => x.i === state.selected[team]);
+    const next = all[(pos + 1) % all.length];
+    state.selected[team] = next.i;
+    state.cursor[team] = { x: next.u.x, y: next.u.y };
+    state.log = `${teamName(team)} selects ${next.u.kind}.`;
+    render();
+  }
+
+  function teamName(team) { return team[0].toUpperCase() + team.slice(1); }
+
+  function render() {
+    const grid = terrain.map(row => row.split(''));
+    for (const u of state.units) {
+      if (u.hp <= 0) continue;
+      grid[u.y][u.x] = u.team === 'light' ? u.kind : u.kind.toLowerCase();
+    }
+
+    const cl = state.cursor.light;
+    const cd = state.cursor.dark;
+    if (grid[cl.y]?.[cl.x] === '.') grid[cl.y][cl.x] = '*';
+    if (grid[cd.y]?.[cd.x] === '.') grid[cd.y][cd.x] = ',';
+
+    const lines = [];
+    lines.push('  ASCII ARCHON DUEL '.padEnd(W + 4, '='));
+    lines.push('  Legend: # wall  ~ water  ^ lava  + shrine');
+    lines.push('  Units: UPPER=Light lower=Dark   *=P1 cursor ,=P2 cursor');
+    lines.push('');
+    for (let y = 0; y < H; y++) lines.push(`${String(y).padStart(2, '0')} ${grid[y].join('')}`);
+    lines.push('   ' + [...Array(W).keys()].map(n => String(n % 10)).join(''));
+    boardEl.textContent = lines.join('\n');
+
+    const lSel = selectedUnit('light');
+    const dSel = selectedUnit('dark');
+    const lUnits = alive('light').map(u => `${u.kind}:${u.hp}`).join(' ');
+    const dUnits = alive('dark').map(u => `${u.kind}:${u.hp}`).join(' ');
+
+    hudEl.innerHTML = `
+      <b>Turn:</b> <span class="${state.turn === 'light' ? 'team-light' : 'team-dark'}">${teamName(state.turn)}</span>
+      ${state.winner ? ` | <b>Winner:</b> ${state.winner}` : ''}<br>
+      <b>Light:</b> ${lUnits} ${lSel ? `(selected ${lSel.kind} ${lSel.hp}/${lSel.maxHp})` : ''}<br>
+      <b>Dark:</b> ${dUnits} ${dSel ? `(selected ${dSel.kind} ${dSel.hp}/${dSel.maxHp})` : ''}<br>
+      <b>Log:</b> ${state.log}<br>
+      <b>Keyboard:</b> P1 WASD move, F attack, Q cycle | P2 IJKL move, ; attack, U cycle | R restart
+    `;
+  }
+
+  const keymap = {
+    w: () => move('light', 0, -1),
+    a: () => move('light', -1, 0),
+    s: () => move('light', 0, 1),
+    d: () => move('light', 1, 0),
+    f: () => attack('light'),
+    q: () => cycle('light'),
+    i: () => move('dark', 0, -1),
+    j: () => move('dark', -1, 0),
+    k: () => move('dark', 0, 1),
+    l: () => move('dark', 1, 0),
+    ';': () => attack('dark'),
+    u: () => cycle('dark'),
+    r: () => init(),
+  };
+
+  window.addEventListener('keydown', (e) => {
+    const fn = keymap[e.key.toLowerCase()];
+    if (fn) {
+      e.preventDefault();
+      fn();
+    }
+  });
+
+  document.querySelectorAll('button[data-key]').forEach(btn => {
+    const press = (ev) => {
+      ev.preventDefault();
+      const fn = keymap[btn.dataset.key];
+      if (fn) fn();
+    };
+    btn.addEventListener('click', press);
+    btn.addEventListener('touchstart', press, { passive: false });
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
